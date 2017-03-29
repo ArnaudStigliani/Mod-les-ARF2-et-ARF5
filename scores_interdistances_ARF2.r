@@ -4,6 +4,8 @@ nRegion <- 600
 library(stringr)
 source("PNfonctions.r")                 # fonctions auxiliaires
 
+
+
 #-------------------------------------read matrices ------------------------------------------
 
 
@@ -19,8 +21,8 @@ pwm_ARF2 <-  reverseComplement(pwm_ARF2_rev) ; pwm_ARF2
 #-------------------------------------read fasta files-----------------------------------------
 
 
-ARF2_pos <- readDNAStringSet('ARF2_pos.fas')[(1:1000)]
-ARF2_neg <- readDNAStringSet('ARF2_negativesetbuilder.fas')[(1:1000)]
+ARF2_pos <- readDNAStringSet('ARF2_pos.fas')#[(1:1000)]
+ARF2_neg <- readDNAStringSet('MP_pos.fas')#[(1:1000)]
 width_pos <- width(ARF2_pos)
 width_neg <- width(ARF2_neg)
 
@@ -30,17 +32,23 @@ seq_neg <- as.character(ARF2_neg)
 
 #-------------------------------------Compute Scores-----------------------------------------
 
+th <- maxScore(pwm_ARF2) - 9
+
 #pos
 
 scores_ARF2_pos<- mapply(seq_pos,FUN=PWMscoreStartingAt,SIMPLIFY=FALSE,  starting.at=mapply(seq,1,width_pos-dim(pwm_ARF2)[2],SIMPLIFY=FALSE),MoreArgs=list(pwm=pwm_ARF2))
 
 scores_ARF2_rev_pos <- mapply(seq_pos,FUN=PWMscoreStartingAt,SIMPLIFY=FALSE,  starting.at=mapply(seq,1,width_pos-dim(pwm_ARF2_rev)[2],SIMPLIFY=FALSE),MoreArgs=list(pwm=pwm_ARF2_rev))
 
+density_pos <- (sapply(FUN=sum,lapply(FUN=">",scores_ARF2_pos,th))+sapply(FUN=sum,lapply(FUN=">",scores_ARF2_rev_pos,th)))/(width_pos*2)
+
 #neg
 
 scores_ARF2_neg <- mapply(seq_neg,FUN=PWMscoreStartingAt,SIMPLIFY=FALSE,  starting.at=mapply(seq,1,width_neg-dim(pwm_ARF2)[2],SIMPLIFY=FALSE),MoreArgs=list(pwm=pwm_ARF2))
 
 scores_ARF2_rev_neg <- mapply(seq_neg,FUN=PWMscoreStartingAt,SIMPLIFY=FALSE,  starting.at=mapply(seq,1,width_neg-dim(pwm_ARF2_rev)[2],SIMPLIFY=FALSE),MoreArgs=list(pwm=pwm_ARF2_rev))
+
+density_neg <- (sapply(FUN=sum,lapply(FUN=">",scores_ARF2_neg,th))+sapply(FUN=sum,lapply(FUN=">",scores_ARF2_rev_neg,th)))/(width_neg*2)
 
 #-----------------------------------Compute Scores Interdistances-----------------------------
 
@@ -151,37 +159,46 @@ scores_IR_pos2 <- scores_IR_pos
 scores_IR_neg2 <- scores_IR_neg
 scores_DR_pos2 <- scores_DR_pos
 scores_DR_neg2 <- scores_DR_neg
-scores_ER_pos2[,8] <- scores_ER_pos2[,8] + 7
-scores_ER_neg2[,8] <- scores_ER_neg2[,8] + 7
-scores_ER_pos2[,9] <- scores_ER_pos2[,9] + 7
-scores_ER_neg2[,9] <- scores_ER_neg2[,9] + 7
+scores_ER_pos2[,8] <- scores_ER_pos2[,8] + 25
+scores_ER_neg2[,8] <- scores_ER_neg2[,8] + 25
+scores_ER_pos2[,9] <- scores_ER_pos2[,9] + 20
+scores_ER_neg2[,9] <- scores_ER_neg2[,9] + 20
 ## scores_IR_pos2[,12] <- scores_IR_pos2[,12] +3
 ## scores_IR_neg2[,12] <- scores_IR_neg2[,12] +3
 ## scores_IR_pos2[,10] <- scores_IR_pos2[,10] +3
 ## scores_IR_neg2[,10] <- scores_IR_neg2[,10] +3
-scores_DR_pos2 <- scores_DR_pos2 - 6
-scores_DR_neg2 <- scores_DR_neg2 - 6
+## scores_DR_pos2[,4] <- scores_DR_pos2[,4]  
+## scores_DR_neg2[,4] <- scores_DR_neg2[,4]
 pos_pen <- apply(FUN=max, cbind(scores_DR_pos2,scores_IR_pos2,scores_ER_pos2),MARGIN=1)
 neg_pen <- apply(FUN=max, cbind(scores_DR_neg2,scores_IR_neg2,scores_ER_neg2),MARGIN=1)
+pos_pen2 <- pos_pen - density_pos *650
+neg_pen2 <- neg_pen - density_neg *650
 rc1 = ROCcurve(pos,neg) # fait la roc
 X <- rc1$XY[1,]
 Y <- rc1$XY[2,]
 rc2 = ROCcurve(pos_pen,neg_pen) # fait la roc
 X_pen <- rc2$XY[1,]
 Y_pen <- rc2$XY[2,]
+rc3 = ROCcurve(pos_pen2,neg_pen2) # fait la roc
+X_pen2 <- rc3$XY[1,]
+Y_pen2 <- rc3$XY[2,]
 AU <- rc1$AUC
 A <- as.character(round(AU,4))
 AUC <- paste("AUC = ", A,sep="")
 AU_pen<- rc2$AUC
 A_pen<- as.character(round(AU_pen,4))
 AUC_pen<- paste("AUC with penalties = ", A_pen,sep="")
+AU_pen2<- rc3$AUC
+A_pen2<- as.character(round(AU_pen2,4))
+AUC_pen2<- paste("AUC with penalties and density = ", A_pen2,sep="")
 {plot(X,Y,type="l",col="red",lwd=2,
-      ylab="ARF2",xlab="negative set",
-      main="ARF2 vs negative set")}
+      ylab="ARF2",xlab="ARF5",
+      main="ARF2 vs ARF5")}
 lines(X_pen,Y_pen,col='cornflowerblue',lwd=2)
-{legend(0.5,0.3,legend=c(AUC,AUC_pen),
-        col=c("red","cornflowerblue"),lty=rep(1,4),lwd=rep(2,4))}
-dev.copy(device = png, filename = 'ROC_with_penalties_1000.png', width = 800, height = 600) 
+lines(X_pen2,Y_pen2,col='green4',lwd=2)
+{legend(0.3,0.15,legend=c(AUC,AUC_pen,AUC_pen2),
+        col=c("red","cornflowerblue","green4"),lty=rep(1,4),lwd=rep(2,4))}
+dev.copy(device = png, filename = 'ROC_ARF2_vs_ARF5.png', width = 800, height = 600) 
 dev.off()
 
 
