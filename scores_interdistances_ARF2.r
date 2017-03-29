@@ -201,7 +201,7 @@ lines(X_pen2,Y_pen2,col='green4',lwd=2)
 dev.copy(device = png, filename = 'ROC_ARF2_vs_ARF5.png', width = 800, height = 600) 
 dev.off()
 
-
+#ajout de la densité
 
 ## pn01 <- c(rep(0,length(ARF2_pos)),rep(1,length(ARF2_neg)))
     
